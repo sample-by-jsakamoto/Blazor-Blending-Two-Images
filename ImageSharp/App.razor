@@ -1,0 +1,52 @@
+﻿@using SixLabors.ImageSharp
+@using SixLabors.ImageSharp.PixelFormats
+@using SixLabors.ImageSharp.Processing
+
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+
+<p>
+    <button @onclick="doIt">
+        Click me
+    </button>
+</p>
+
+@code
+{
+    async Task doIt()
+    {
+        // Create a new canvas with empty image 256x256 pixels
+        using var canvas = new Image<Rgba32>(256, 256);
+
+        // Load the table image and draw it on the canvas
+        using var tableImage = await LoadImage("./assets/table.png");
+        canvas.Mutate(ctx => ctx.DrawImage(tableImage, 1f));
+
+        // Load the apple image and draw it on the canvas
+        using var appleImage = await LoadImage("./assets/apple.png");
+        canvas.Mutate(ctx => ctx.DrawImage(appleImage, new Point(96, 50), 1f));
+
+        // Get the canvas image as a byte array.
+        using var memoryStream = new MemoryStream();
+        await canvas.SaveAsPngAsync(memoryStream);
+        var imageBytes = memoryStream.ToArray();
+
+        // Save it
+        await SaveImage("image.png", imageBytes);
+
+        await JSRuntime.InvokeVoidAsync("alert", "The image was downloaded.");
+    }
+
+    async ValueTask<Image> LoadImage(string url)
+    {
+        var imageBytes = await Http.GetByteArrayAsync(url);
+
+        // Create a ImageSharp.Image from the byte array.
+        return Image.Load(imageBytes);
+    }
+
+    async ValueTask SaveImage(string imageName, byte[] imageBytes)
+    {
+        await JSRuntime.InvokeDownloadAsync(imageName, "image/png", imageBytes);
+    }
+}

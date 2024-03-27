@@ -1,0 +1,49 @@
+﻿@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+
+<p>
+    <button @onclick="doIt">
+        Click me
+    </button>
+</p>
+
+@code
+{
+    async Task doIt()
+    {
+        await using var module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./App.razor.js");
+
+        // Create a new canvas with empty image 256x256 pixels
+        await using var canvas = await module.InvokeAsync<IJSObjectReference>("createElement", "canvas", new { Width = 256, Height = 256 });
+        await using var ctx = await canvas.InvokeAsync<IJSObjectReference>("getContext", "2d");
+
+        // Load the table image and draw it on the canvas
+        await using var tableImage = await LoadImage(module, "./assets/table.png");
+        await ctx.InvokeVoidAsync("drawImage", tableImage, 0, 0);
+
+        // Load the apple image and draw it on the canvas
+        await using var appleImage = await LoadImage(module, "./assets/apple.png");
+        await ctx.InvokeVoidAsync("drawImage", appleImage, 96, 50);
+
+        // Get the canvas image as a byte array.
+        var imageBytes = await module.InvokeAsync<byte[]>("getImageBytes", canvas);
+
+        // Save it
+        await SaveImage("image.png", imageBytes);
+
+        await JSRuntime.InvokeVoidAsync("alert", "The image was downloaded.");
+    }
+
+    async ValueTask<IJSObjectReference> LoadImage(IJSObjectReference module, string url)
+    {
+        var imageBytes = await Http.GetByteArrayAsync(url);
+        
+        // Create an Image object from the byte array.
+        return await module.InvokeAsync<IJSObjectReference>("loadImage", imageBytes);
+    }
+
+    async ValueTask SaveImage(string imageName, byte[] imageBytes)
+    {
+        await JSRuntime.InvokeDownloadAsync(imageName, "image/png", imageBytes);
+    }
+}

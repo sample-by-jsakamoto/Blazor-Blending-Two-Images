@@ -1,0 +1,52 @@
+﻿@using SkiaSharp
+
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+
+<p>
+    <button @onclick="doIt">
+        Click me
+    </button>
+</p>
+
+@code
+{
+    async Task doIt()
+    {
+        // Create a new canvas with empty image 256x256 pixels
+        using var surface = SKSurface.Create(new SKImageInfo(width: 256, height: 256));
+        var canvas = surface.Canvas;
+
+        // Load the table image and draw it on the canvas
+        using var tableImage = await LoadImage("./assets/table.png");
+        canvas.DrawImage(tableImage, 0, 0);
+
+        // Load the apple image and draw it on the canvas
+        using var appleImage = await LoadImage("./assets/apple.png");
+        canvas.DrawImage(appleImage, 96, 50);
+
+        // Get the canvas image as a byte array.
+        var imageBytes = surface
+            .Snapshot()
+            .Encode(SKEncodedImageFormat.Png, quality: 100)
+            .ToArray();
+
+        // Save it
+        await SaveImage("image.png", imageBytes);
+
+        await JSRuntime.InvokeVoidAsync("alert", "The image was downloaded.");
+    }
+
+    async ValueTask<SKImage> LoadImage(string url)
+    {
+        var imageBytes = await Http.GetByteArrayAsync(url);
+        
+        // Create a SKImage from the byte array.
+        return SKImage.FromEncodedData(imageBytes); 
+    }
+
+    async ValueTask SaveImage(string imageName, byte[] imageBytes)
+    {
+        await JSRuntime.InvokeDownloadAsync(imageName, "image/png", imageBytes);
+    }
+}
